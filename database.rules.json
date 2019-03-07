@@ -1,0 +1,6 @@
+{
+  "rules": {
+    ".read": "auth != null && auth.isAdmin == true",
+    ".write": "auth != null && auth.isAdmin == true"
+  }
+}

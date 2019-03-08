@@ -4,7 +4,7 @@ const serviceAccount = require('../momonga-credential.json')
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     database: 'https://momonga-8ec45.firebaseio.com/',
-    storageBucket: 'momonga-8ec45.appspot.com/'
+    storageBucket: 'gs://momonga-8ec45.appspot.com/'
 })
 
 const functions = require('firebase-functions')
@@ -30,11 +30,17 @@ app.get('/api/likes', (request, response) => {
     documents.get().then((snapshot) => {
         snapshot.forEach(doc => {
             const filter = request.query.filter
-            if((!filter && filter != "") || doc.id.includes(filter)){
+            if((!filter && filter !== "") || doc.id.includes(filter)){
                 array.push({'key': doc.id, 'count': doc.data().count, 'dates': doc.data().dates })
             }
         })
         response.send(array)
+        return
+    }).catch((err) => {
+        response.status(401).send({
+            'process': 'error', endpoint: '/api/likes',
+            'message': err, key: request.params.key
+        })
     })
 })
 
@@ -46,6 +52,12 @@ app.get('/api/likes/:key', (request, response) => {
             count = doc.data().count
         }
         response.send({'key': request.params.key, 'count': count, 'dates': doc.data().dates })
+        return
+    }).catch(err => {
+        response.status(401).send({
+            'process': 'error', endpoint: `/api/likes/${request.params.key}`,
+            'message': err, key: request.params.key
+        })
     })
 })
 
@@ -62,32 +74,40 @@ app.post('/api/likes/:key', (request, response) => {
             array.push(new Date())
             docRef.set({'key': request.params.key, 'count': count, 'dates': array})
         }
-        console.log({'process': 'success', 'key': request.params.key, 'count': count })
         response.send({'process': 'success', 'key': request.params.key, 'count': count })
+        return
     }).catch(err => {
-        response.status(401).send({'process': 'error', 'message': err, key: request.params.key })
+        response.status(401).send({
+            'process': 'error', endpoint: `/api/likes/${request.params.key}`,
+            'message': err, key: request.params.key
+        })
     })
 })
 
-app.get('/api/downloads/:type', (request, response) => {
+app.get('/api/downloadcount/:type', (request, response) => {
     const type = request.params.type
-    const documents = db.collection('momonga-${type}')
+    const documents = db.collection(`momonga-${type}`)
     let array = []
 
     documents.get().then((snapshot) => {
         snapshot.forEach(doc => {
             const filter = request.query.filter
-            if((!filter && filter != "") || doc.id.includes(filter)){
+            if((!filter && filter !== "") || doc.id.includes(filter)){
                 array.push({'key': doc.key, 'count': doc.data().count, 'dates': doc.data().dates })
             }
         })
         response.send(array)
+        return
+    }).catch(err => {
+        response.status(401).send({
+            'process': 'error', endpoint: `/api/downloads/${type}`,
+            'message': err
+        })
     })
 })
 
 const findDownloads = (type, request, response) => {
     const docRef = db.collection(`momonga-${type}`).doc(`${request.params.path}`)
-    console.log(`downloads ${type}: ${request.params.path}`)
     docRef.get().then(doc => {
         let count = 0
         let array = []
@@ -96,6 +116,12 @@ const findDownloads = (type, request, response) => {
             array = doc.data().dates
         }
         response.send({'key': request.params.path, 'count': count, 'dates': array })
+        return
+    }).catch(err => {
+        response.status(401).send({
+            'key': request.params.path, message: err,
+            endpoint: `/api/downloadcount/${type}/${request.params.path}`
+        })
     })
 }
 
@@ -113,20 +139,21 @@ const downloads = (type, request, response) => {
     
     let count = 1
     docRef.get().then(doc => {
-        if (!doc.exists) {
-            docRef.set({'key': path, 'count': 1, 'dates': [ new Date() ]})
-        }
-        else{
+        if(doc.exists){
             count = doc.data().count + 1
             let array = doc.data().dates
             array.push(new Date())
             docRef.set({'key': path, 'count': count, 'dates': array})
         }
+        else {
+            docRef.set({'key': path, 'count': 1, 'dates': [ new Date() ]})
+        }
         const file = admin.storage().bucket().file(`${type}/${path}`)
-        if(!file.exists()){
-            response.status(404).send({'process': 'error',
-                                       'message': `${path}: file not found`, 'key': path})
-            return
+        if(!file.exists){
+            response.status(404).send({
+                'process': 'error', error: err,
+                'message': `${path}: file not found`, 'key': path
+            })
         }
         file.getMetadata((api, metadata, apiResponse) => {
             response.contentType(metadata.contentType)
@@ -135,8 +162,12 @@ const downloads = (type, request, response) => {
                   .on('data',     (data) => { response.write(data) })
                   .on('end',      ()     => { response.end() })
         })
+        return
     }).catch(err => {
-        response.status(401).send({'process': 'error', 'message': err, 'key': path })
+        response.status(401).send({
+            'process': 'error', 'message': err, 'key': path,
+            endpoint: `/api/downloads/${type}/${path}`
+        })
     })
 }
 

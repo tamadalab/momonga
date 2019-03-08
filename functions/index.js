@@ -66,6 +66,7 @@ exp.get('/api/likes/:key', (request, response) => {
         //     'message': err, method: 'get', key: request.params.key
         // })
         response.send({key: request.params.key, count: 0, dates: []})
+        return err
     })
 })
 
@@ -90,10 +91,7 @@ exp.post('/api/likes/:key', (request, response) => {
         docRef.set(data)
         data.process = 'success'
         response.send(data)
-        // response.status(401).send({
-        //     'process': 'error', method: 'post', endpoint: `/api/likes/${request.params.key}`,
-        //     'message': err, key: request.params.key
-        // })
+        return err
     })
 })
 
@@ -106,7 +104,8 @@ exp.get('/api/downloadcount/:type', (request, response) => {
         snapshot.forEach(doc => {
             const filter = request.query.filter
             if((!filter && filter !== "") || doc.id.includes(filter)){
-                array.push({'key': doc.key, 'count': doc.data().count, 'dates': doc.data().dates })
+                const data = doc.data()
+                array.push({'key': data.key, 'count': data.count, 'dates': data.dates })
             }
         })
         response.send(array)
@@ -128,7 +127,7 @@ const findDownloads = (type, request, response) => {
             count = doc.data().count
             array = doc.data().dates
         }
-        response.send({'key': request.params.path, 'count': count, 'dates': array })
+        response.send({'key': doc.data().key, type: type, 'count': count, 'dates': array })
         return
     }).catch(err => {
         response.status(401).send({

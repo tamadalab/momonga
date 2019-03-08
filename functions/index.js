@@ -1,29 +1,34 @@
 const admin = require('firebase-admin')
-const serviceAccount = require('../momonga-credential.json')
-
 admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.applicationDefault(),
     database: 'https://momonga-8ec45.firebaseio.com/',
     storageBucket: 'gs://momonga-8ec45.appspot.com/'
 })
 
+// const serviceAccount = require('../momonga-credential.json')
+// admin.initializeApp({
+//     credential: admin.credential.cert(serviceAccount),
+//     database: 'https://momonga-8ec45.firebaseio.com/',
+//     storageBucket: 'gs://momonga-8ec45.appspot.com/'
+// })
+
 const functions = require('firebase-functions')
 const express = require('express')
-const app = express()
+const exp = express()
 
 const db = admin.firestore()
 
-app.get('/api/*', (request, response, next) => {
+exp.get('/api/*', (request, response, next) => {
     response.contentType('json')
     response.header('Access-Control-Allow-Origin', '*')
     next()
 })
 
-app.get('/api/hello', (request, response) => {
+exp.get('/api/hello', (request, response) => {
     response.send('Hello World')
 })
 
-app.get('/api/likes', (request, response) => {
+exp.get('/api/likes', (request, response) => {
     const documents = db.collection('momonga')
     let array = []
 
@@ -44,24 +49,27 @@ app.get('/api/likes', (request, response) => {
     })
 })
 
-app.get('/api/likes/:key', (request, response) => {
+exp.get('/api/likes/:key', (request, response) => {
     const docRef = db.collection('momonga').doc(request.params.key)
+    console.log(`docRef: momonga: ${docRef}`)
     docRef.get().then(doc => {
         let count = 0
         if(doc.exists){
             count = doc.data().count
         }
+        console.log({'key': request.params.key, 'count': count, 'dates': doc.data().dates })
         response.send({'key': request.params.key, 'count': count, 'dates': doc.data().dates })
         return
     }).catch(err => {
-        response.status(401).send({
-            'process': 'error', endpoint: `/api/likes/${request.params.key}`,
-            'message': err, key: request.params.key
-        })
+        // response.status(401).send({
+        //     'process': 'error', endpoint: `/api/likes/${request.params.key}`,
+        //     'message': err, method: 'get', key: request.params.key
+        // })
+        response.send({key: request.params.key, count: 0, dates: []})
     })
 })
 
-app.post('/api/likes/:key', (request, response) => {
+exp.post('/api/likes/:key', (request, response) => {
     const docRef = db.collection('momonga').doc(request.params.key)
     let count = 1
     docRef.get().then(doc => {
@@ -74,17 +82,22 @@ app.post('/api/likes/:key', (request, response) => {
             array.push(new Date())
             docRef.set({'key': request.params.key, 'count': count, 'dates': array})
         }
+        console.log({'process': 'success', 'key': request.params.key, 'count': count })
         response.send({'process': 'success', 'key': request.params.key, 'count': count })
         return
     }).catch(err => {
-        response.status(401).send({
-            'process': 'error', endpoint: `/api/likes/${request.params.key}`,
-            'message': err, key: request.params.key
-        })
+        const data = {key: request.params.key, 'count': 1, 'dates': [ new Date() ]}
+        docRef.set(data)
+        data.process = 'success'
+        response.send(data)
+        // response.status(401).send({
+        //     'process': 'error', method: 'post', endpoint: `/api/likes/${request.params.key}`,
+        //     'message': err, key: request.params.key
+        // })
     })
 })
 
-app.get('/api/downloadcount/:type', (request, response) => {
+exp.get('/api/downloadcount/:type', (request, response) => {
     const type = request.params.type
     const documents = db.collection(`momonga-${type}`)
     let array = []
@@ -125,11 +138,11 @@ const findDownloads = (type, request, response) => {
     })
 }
 
-app.get('/api/downloadcount/papers/:path', (request, response) => {
+exp.get('/api/downloadcount/papers/:path', (request, response) => {
     findDownloads('papers', request, response)
 })
 
-app.get('/api/downloadcount/posters/:path', (request, response) => {
+exp.get('/api/downloadcount/posters/:path', (request, response) => {
     findDownloads('posters', request, response)
 })
 
@@ -171,11 +184,11 @@ const downloads = (type, request, response) => {
     })
 }
 
-app.get('/api/downloads/papers/:path', (request, response) => {
+exp.get('/api/downloads/papers/:path', (request, response) => {
     downloads('papers', request, response)
 })
-app.get('/api/downloads/posters/:path', (request, response) => {
+exp.get('/api/downloads/posters/:path', (request, response) => {
     downloads('posters', request, response)
 })
 
-exports.momonga = functions.https.onRequest(app);
+exports.momonga = functions.https.onRequest(exp);

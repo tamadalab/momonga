@@ -52,20 +52,20 @@ const register = (key) => {
 }
 
 const performIfNoError = (key) => {
-  if(!key) return true
-  $('#key').html('')
+    if(!key) return true
+    $('#key').html('')
 
-  $.ajax({
-    type: 'GET',
-    url: `/api/likes/${key}`
-  }).done((data, status, xhr) => {
-    if(data.count != 0){
-      showError(`${key} was already registered`)
-    } else{
-      register(key)
-    }
-  })
-  $('#key').val('')
+    $.ajax({
+        type: 'GET',
+        url: `/api/likes/${key}`
+    }).done((data, status, xhr) => {
+        if(data.count != 0){
+            showError(`${key} was already registered`)
+        } else{
+            register(key)
+        }
+    })
+    $('#key').val('')
 }
 
 const addKey = () => {

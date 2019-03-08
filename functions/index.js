@@ -69,35 +69,47 @@ app.post('/api/likes/:key', (request, response) => {
     })
 })
 
-app.get('/api/downloads', (request, response) => {
-  const documents = db.collection('momongadl')
-  let array = []
+app.get('/api/downloads/:type', (request, response) => {
+    const type = request.params.type
+    const documents = db.collection('momonga-${type}')
+    let array = []
 
-  documents.get().then((snapshot) => {
-      snapshot.forEach(doc => {
-          const filter = request.query.filter
-          if((!filter && filter != "") || doc.id.includes(filter)){
-              array.push({'key': doc.key, 'count': doc.data().count, 'dates': doc.data().dates })
-          }
-      })
-      response.send(array)
-  })
-})
-
-app.get('/api/downloads/:path', (request, response) => {
-    const docRef = db.collection('momongadl').doc(request.params.path)
-    docRef.get().then(doc => {
-        let count = 0
-        if(doc.exists){
-            count = doc.data().count
-        }
-        response.send({'key': request.params.path, 'count': count, 'dates': doc.data().dates })
+    documents.get().then((snapshot) => {
+        snapshot.forEach(doc => {
+            const filter = request.query.filter
+            if((!filter && filter != "") || doc.id.includes(filter)){
+                array.push({'key': doc.key, 'count': doc.data().count, 'dates': doc.data().dates })
+            }
+        })
+        response.send(array)
     })
 })
 
-app.post('/api/downloads/:path', (request, response) => {
+const findDownloads = (type, request, response) => {
+    const docRef = db.collection(`momonga-${type}`).doc(`${request.params.path}`)
+    console.log(`downloads ${type}: ${request.params.path}`)
+    docRef.get().then(doc => {
+        let count = 0
+        let array = []
+        if(doc.exists){
+            count = doc.data().count
+            array = doc.data().dates
+        }
+        response.send({'key': request.params.path, 'count': count, 'dates': array })
+    })
+}
+
+app.get('/api/downloadcount/papers/:path', (request, response) => {
+    findDownloads('papers', request, response)
+})
+
+app.get('/api/downloadcount/posters/:path', (request, response) => {
+    findDownloads('posters', request, response)
+})
+
+const downloads = (type, request, response) => {
     const path = request.params.path
-    const docRef = db.collection('momongadl').doc(path)
+    const docRef = db.collection(`momonga-${type}`).doc(path)
     
     let count = 1
     docRef.get().then(doc => {
@@ -110,11 +122,29 @@ app.post('/api/downloads/:path', (request, response) => {
             array.push(new Date())
             docRef.set({'key': path, 'count': count, 'dates': array})
         }
-        admin.storage().bucket()
-        // response.redirect(``)
+        const file = admin.storage().bucket().file(`${type}/${path}`)
+        if(!file.exists()){
+            response.status(404).send({'process': 'error',
+                                       'message': `${path}: file not found`, 'key': path})
+            return
+        }
+        file.getMetadata((api, metadata, apiResponse) => {
+            response.contentType(metadata.contentType)
+            response.append('Content-Disposition', `attachment; filename="${path}"`)
+            const stream = file.createReadStream({ start: 0, end: metadata.size })
+                  .on('data',     (data) => { response.write(data) })
+                  .on('end',      ()     => { response.end() })
+        })
     }).catch(err => {
         response.status(401).send({'process': 'error', 'message': err, 'key': path })
     })
+}
+
+app.get('/api/downloads/papers/:path', (request, response) => {
+    downloads('papers', request, response)
+})
+app.get('/api/downloads/posters/:path', (request, response) => {
+    downloads('posters', request, response)
 })
 
 exports.momonga = functions.https.onRequest(app);

@@ -69,13 +69,17 @@ const performIfNoError = (key) => {
 }
 
 const addKey = () => {
-  const key = $('#key').val()
-  console.log(`push 'Add key' button with key: ${key}`)
-  if(performIfNoError(key)){
-    showError('input key value')
-  }
-  clear()
-  return false
+    const key = $('#key').val()
+    console.log(`push 'Add key' button with key: ${key}`)
+    if(performIfNoError(key)){
+        showError('input key value')
+    }
+    clear()
+    return false
+}
+
+const download = (path) => {
+    return $.post(`/api/downloads/${path}`)
 }
 
 loadItems()

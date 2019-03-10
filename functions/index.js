@@ -24,8 +24,10 @@ exp.get('/api/*', (request, response, next) => {
     next()
 })
 
-exp.get('/api/hello', (request, response) => {
-    response.send('Hello World')
+exp.post('/api/*', (request, response, next) => {
+    response.contentType('json')
+    response.header('Access-Control-Allow-Origin', '*')
+    next()
 })
 
 exp.get('/api/likes', (request, response) => {
@@ -36,7 +38,11 @@ exp.get('/api/likes', (request, response) => {
         snapshot.forEach(doc => {
             const filter = request.query.filter
             if((!filter && filter !== "") || doc.id.includes(filter)){
-                array.push({'key': doc.id, 'count': doc.data().count, 'dates': doc.data().dates })
+                let item = { key: doc.id, count: doc.data().count }
+                if(request.query.dates === "true"){
+                    item.dates = doc.data().dates
+                }
+                array.push(item)
             }
         })
         response.send(array)
@@ -105,14 +111,19 @@ exp.get('/api/downloadcount/:type', (request, response) => {
             const filter = request.query.filter
             if((!filter && filter !== "") || doc.id.includes(filter)){
                 const data = doc.data()
-                array.push({'key': data.key, 'count': data.count, 'dates': data.dates })
+                let item = { key: data.key, count: data.count }
+                if(request.query.all === "true"){
+                    item.dates = data.dates
+                    item.addresses = data.addresses
+                }
+                array.push(item)
             }
         })
         response.send(array)
         return
     }).catch(err => {
         response.status(401).send({
-            'process': 'error', endpoint: `/api/downloads/${type}`,
+            'process': 'error', endpoint: `/api/downloadcount/${type}`,
             'message': err
         })
     })
@@ -121,13 +132,18 @@ exp.get('/api/downloadcount/:type', (request, response) => {
 const findDownloads = (type, request, response) => {
     const docRef = db.collection(`momonga-${type}`).doc(`${request.params.path}`)
     docRef.get().then(doc => {
-        let count = 0
-        let array = []
         if(doc.exists){
-            count = doc.data().count
-            array = doc.data().dates
+            response.send({
+                key: doc.data().key, count: doc.data().count,
+                type: type, dates: doc.data().dates,
+                addresses: doc.data().addresses
+            })
         }
-        response.send({'key': doc.data().key, type: type, 'count': count, 'dates': array })
+        else{
+            response.send({
+                key: request.params.path, count: 0, type: type, dates: [], addresses: []
+            })
+        }
         return
     }).catch(err => {
         response.status(401).send({
@@ -145,6 +161,22 @@ exp.get('/api/downloadcount/posters/:path', (request, response) => {
     findDownloads('posters', request, response)
 })
 
+const getIP = (req) => {
+    if (req.headers['x-forwarded-for']) {
+        return req.headers['x-forwarded-for'];
+    }
+    if (req.connection && req.connection.remoteAddress) {
+        return req.connection.remoteAddress;
+    }
+    if (req.connection.socket && req.connection.socket.remoteAddress) {
+        return req.connection.socket.remoteAddress;
+    }
+    if (req.socket && req.socket.remoteAddress) {
+        return req.socket.remoteAddress;
+    }
+    return '0.0.0.0';
+};
+
 const downloads = (type, request, response) => {
     const path = request.params.path
     const docRef = db.collection(`momonga-${type}`).doc(path)
@@ -154,22 +186,29 @@ const downloads = (type, request, response) => {
         if(doc.exists){
             count = doc.data().count + 1
             let array = doc.data().dates
+            let addresses = doc.data().addresses()
             array.push(new Date())
-            docRef.set({'key': path, 'count': count, 'dates': array})
+            addresses.push(getIP(request))
+            docRef.set({key: path, count: count, dates: array, addresses: addresses})
         }
         else {
-            docRef.set({'key': path, 'count': 1, 'dates': [ new Date() ]})
+            docRef.set({key: path, count: 1, dates: [ new Date() ], addresses: [ getIP(request) ]})
         }
-        const file = admin.storage().bucket().file(`${type}/${path}`)
+        let ext = '.pdf'
+        if(request.query.ext !== undefined){
+            ext = '.' + request.query.ext
+        }
+        const file = admin.storage().bucket().file(`${type}/${path}${ext}`)
         if(!file.exists){
             response.status(404).send({
                 'process': 'error', error: err,
-                'message': `${path}: file not found`, 'key': path
+                'message': `${path}${ext}: file not found`, 'key': path
             })
+            return
         }
         file.getMetadata((api, metadata, apiResponse) => {
+            response.append('Content-Disposition', `attachment; filename="${path}${ext}"`)
             response.contentType(metadata.contentType)
-            response.append('Content-Disposition', `attachment; filename="${path}"`)
             const stream = file.createReadStream({ start: 0, end: metadata.size })
                   .on('data',     (data) => { response.write(data) })
                   .on('end',      ()     => { response.end() })
@@ -178,7 +217,7 @@ const downloads = (type, request, response) => {
     }).catch(err => {
         response.status(401).send({
             'process': 'error', 'message': err, 'key': path,
-            endpoint: `/api/downloads/${type}/${path}`
+            endpoint: `/api/downloads/${type}/${path}${ext}`
         })
     })
 }

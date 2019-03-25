@@ -180,7 +180,8 @@ const getIP = (req) => {
 const downloads = (type, request, response) => {
     const path = request.params.path
     const docRef = db.collection(`momonga-${type}`).doc(path)
-    
+    let ext = '.pdf'
+
     let count = 1
     docRef.get().then(doc => {
         if(doc.exists){
@@ -194,7 +195,6 @@ const downloads = (type, request, response) => {
         else {
             docRef.set({key: path, count: 1, dates: [ new Date() ], addresses: [ getIP(request) ]})
         }
-        let ext = '.pdf'
         if(request.query.ext !== undefined){
             ext = '.' + request.query.ext
         }

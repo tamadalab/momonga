@@ -57,13 +57,11 @@ exp.get('/api/likes', (request, response) => {
 
 exp.get('/api/likes/:key', (request, response) => {
     const docRef = db.collection('momonga').doc(request.params.key)
-    console.log(`docRef: momonga: ${docRef}`)
     docRef.get().then(doc => {
         let count = 0
         if(doc.exists){
             count = doc.data().count
         }
-        console.log({'key': request.params.key, 'count': count, 'dates': doc.data().dates })
         response.send({'key': request.params.key, 'count': count, 'dates': doc.data().dates })
         return
     }).catch(err => {
@@ -89,7 +87,6 @@ exp.post('/api/likes/:key', (request, response) => {
             array.push(new Date())
             docRef.set({'key': request.params.key, 'count': count, 'dates': array})
         }
-        console.log({'process': 'success', 'key': request.params.key, 'count': count })
         response.send({'process': 'success', 'key': request.params.key, 'count': count })
         return
     }).catch(err => {
@@ -180,14 +177,14 @@ const getIP = (req) => {
 const downloads = (type, request, response) => {
     const path = request.params.path
     const docRef = db.collection(`momonga-${type}`).doc(path)
-    let ext = '.pdf'
 
+    let ext = '.pdf'
     let count = 1
     docRef.get().then(doc => {
         if(doc.exists){
             count = doc.data().count + 1
             let array = doc.data().dates
-            let addresses = doc.data().addresses()
+            let addresses = doc.data().addresses
             array.push(new Date())
             addresses.push(getIP(request))
             docRef.set({key: path, count: count, dates: array, addresses: addresses})

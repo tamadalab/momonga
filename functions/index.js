@@ -48,6 +48,7 @@ exp.get('/api/likes', (request, response) => {
         response.send(array)
         return
     }).catch((err) => {
+        console.warn(`message: ${err}, endpoint: /api/likes, key: ${request.params.key}`)
         response.status(401).send({
             'process': 'error', endpoint: '/api/likes',
             'message': err, key: request.params.key
@@ -119,6 +120,7 @@ exp.get('/api/downloadcount/:type', (request, response) => {
         response.send(array)
         return
     }).catch(err => {
+        console.warn(`message: ${err}, endpoint: /api/downloadcoubnt/${type}`)
         response.status(401).send({
             'process': 'error', endpoint: `/api/downloadcount/${type}`,
             'message': err
@@ -143,6 +145,7 @@ const findDownloads = (type, request, response) => {
         }
         return
     }).catch(err => {
+        console.warn(`key: ${request.params.path}, message: ${err}, endpoint: /api/downloadcoubnt/${type}/${request.params.path}`)
         response.status(401).send({
             'key': request.params.path, message: err,
             endpoint: `/api/downloadcount/${type}/${request.params.path}`
@@ -197,6 +200,7 @@ const downloads = (type, request, response) => {
         }
         const file = admin.storage().bucket().file(`${type}/${path}${ext}`)
         if(!file.exists){
+            console.warn(`${path}${ext}: file not found, type: ${type}, path: ${path}`)
             response.status(404).send({
                 'process': 'error', error: err,
                 'message': `${path}${ext}: file not found`, 'key': path
@@ -212,6 +216,7 @@ const downloads = (type, request, response) => {
         })
         return
     }).catch(err => {
+        console.warn(`message: ${err}, key: ${path}, path: /api/downloads/${type}/${path}${ext}`)
         response.status(401).send({
             'process': 'error', 'message': err, 'key': path,
             endpoint: `/api/downloads/${type}/${path}${ext}`

@@ -157,6 +157,14 @@ exp.get('/api/downloadcount/papers/:path', (request, response) => {
     findDownloads('papers', request, response)
 })
 
+exp.get('/api/downloadcount/samples/:path', (request, response) => {
+    findDownloads('samples', request, response)
+})
+
+exp.get('/api/downloadcount/theses/:path', (request, response) => {
+    findDownloads('theses', request, response)
+})
+
 exp.get('/api/downloadcount/posters/:path', (request, response) => {
     findDownloads('posters', request, response)
 })
@@ -227,8 +235,17 @@ const downloads = (type, request, response) => {
 exp.get('/api/downloads/papers/:path', (request, response) => {
     downloads('papers', request, response)
 })
+
 exp.get('/api/downloads/posters/:path', (request, response) => {
     downloads('posters', request, response)
+})
+
+exp.get('/api/downloads/samples/:path', (request, response) => {
+    downloads('samples', request, response)
+})
+
+exp.get('/api/downloads/theses/:path', (request, response) => {
+    downloads('theses', request, response)
 })
 
 exports.momonga = functions.https.onRequest(exp);
